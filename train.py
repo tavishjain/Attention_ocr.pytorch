@@ -1,21 +1,21 @@
 # coding:utf-8
 from __future__ import print_function
-import argparse
-import random
+import  argparse
+import  random
 import torch
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torch.utils.data
-import numpy as np
-import os
-import src.utils as utils
+import  numpy  as  np
+import  you
+import  src . utils  as  utils
 import src.dataset as dataset
-import time
-from src.utils import alphabet
-from src.utils import weights_init
+import  time
+from  src . utils  import  alphabet
+from  src . utils  import  weights_init
 
-import models.crnn_lang as crnn
-print(crnn.__name__)
+import  models . crnn_lang  as  crnn
+print ( crnn . __name__ )
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--trainlist',  default='./data/ch_train.txt')
@@ -46,13 +46,13 @@ opt = parser.parse_args()
 print(opt)
 
 SOS_token = 0
-EOS_TOKEN = 1              # 结束标志的标签
+EOS_TOKEN  =  1               # The label of the end sign
 BLANK = 2                  # blank for padding
 
 
 if opt.experiment is None:
     opt.experiment = 'expr'
-os.system('mkdir -p {0}'.format(opt.experiment))        # 创建多级目录
+os . system ( 'mkdir -p {0}' . format ( opt . experiment ))         # Create a multi-level directory
 
 opt.manualSeed = random.randint(1, 10000)  # fix seed
 print("Random Seed: ", opt.manualSeed)
@@ -80,16 +80,16 @@ train_loader = torch.utils.data.DataLoader(
 
 test_dataset = dataset.listDataset(list_file =opt.vallist, transform=dataset.resizeNormalize((opt.imgW, opt.imgH)))
 
-nclass = len(alphabet) + 3          # decoder的时候，需要的类别数,3 for SOS,EOS和blank 
+nclass  =  len ( alphabet ) +  3           # decoder, the number of categories needed, 3 for SOS, EOS and blank
 nc = 1
 
 converter = utils.strLabelConverterForAttention(alphabet)
 # criterion = torch.nn.CrossEntropyLoss()
-criterion = torch.nn.NLLLoss()              # 最后的输出要为log_softmax
+criterion  =  torch . nn . NLLLoss ()               # The final output should be log_softmax
 
 
-encoder = crnn.CNN(opt.imgH, nc, opt.nh)
-# decoder = crnn.decoder(opt.nh, nclass, dropout_p=0.1, max_length=opt.max_width)        # max_length:w/4,为encoder特征提取之后宽度方向上的序列长度
+encoder  =  crnn . CNN ( opt . ImgH , nc , opt . Nh )
+# decoder = crnn.decoder(opt.nh, nclass, dropout_p=0.1, max_length=opt.max_width) # max_length:w/4, is the sequence length in the width direction after the encoder feature extraction
 decoder = crnn.decoderV2(opt.nh, nclass, dropout_p=0.1)        # For prediction of an indefinite long sequence
 encoder.apply(weights_init)
 decoder.apply(weights_init)
@@ -107,9 +107,9 @@ image = torch.FloatTensor(opt.batchSize, 3, opt.imgH, opt.imgH)
 text = torch.LongTensor(opt.batchSize * 5)
 length = torch.IntTensor(opt.batchSize)
 
-if opt.cuda:
+if  opt . miracles :
     encoder.cuda()
-    decoder.cuda()
+    decoder . cuda ()
     # encoder = torch.nn.DataParallel(encoder, device_ids=range(opt.ngpu))
     # decoder = torch.nn.DataParallel(decoder, device_ids=range(opt.ngpu))
     image = image.cuda()
@@ -120,7 +120,7 @@ if opt.cuda:
 loss_avg = utils.averager()
 
 # setup optimizer
-if opt.adam:
+if  opt . man :
     encoder_optimizer = optim.Adam(encoder.parameters(), lr=opt.lr,
                            betas=(opt.beta1, 0.999))
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=opt.lr,
@@ -151,7 +151,7 @@ def val(encoder, decoder, criterion, batchsize, dataset, teach_forcing=False, ma
 
     max_iter = min(max_iter, len(data_loader))
     # max_iter = len(data_loader) - 1
-    for i in range(max_iter):
+    for  i  in  range ( max_iter ):
         data = val_iter.next()
         i += 1
         cpu_images, cpu_texts = data
@@ -159,26 +159,26 @@ def val(encoder, decoder, criterion, batchsize, dataset, teach_forcing=False, ma
         utils.loadData(image, cpu_images)
 
         target_variable = converter.encode(cpu_texts)
-        n_total += len(cpu_texts[0]) + 1                       # 还要准确预测出EOS停止位
+        n_total  +=  len ( cpu_texts [ 0 ]) +  1                        # Also accurately predict the EOS stop bit
 
         decoded_words = []
         decoded_label = []
         decoder_attentions = torch.zeros(len(cpu_texts[0]) + 1, opt.max_width)
-        encoder_outputs = encoder(image)            # cnn+biLstm做特征提取
+        encoder_outputs  =  encoder ( image )             # cnn+biLstm for feature extraction
         target_variable = target_variable.cuda()
-        decoder_input = target_variable[0].cuda()   # 初始化decoder的开始,从0开始输出
+        decoder_input  =  target_variable [ 0 ]. cuda ()    # Initialize the beginning of the decoder, start output from 0
         decoder_hidden = decoder.initHidden(b).cuda()
         loss = 0.0
         if not teach_forcing:
-            # 预测的时候采用非强制策略，将前一次的输出，作为下一次的输入，直到标签为EOS_TOKEN时停止
-            for di in range(1, target_variable.shape[0]):  # 最大字符串的长度
+            # When forecasting, adopt a non-mandatory strategy, and use the previous output as the next input until the label is EOS_TOKEN.
+            for  di  in  range ( 1 , target_variable . shape [ 0 ]):   # Maximum string length
                 decoder_output, decoder_hidden, decoder_attention = decoder(
                     decoder_input, decoder_hidden, encoder_outputs)
-                loss += criterion(decoder_output, target_variable[di])  # 每次预测一个字符
+                loss  +=  criterion ( decoder_output , target_variable [ di ])   # predict one character at a time
                 loss_avg.add(loss)
                 decoder_attentions[di-1] = decoder_attention.data
                 topv, topi = decoder_output.data.topk(1)
-                ni = topi.squeeze(1)
+                ni  =  topi . squeeze ( 1 )
                 decoder_input = ni
                 if ni == EOS_TOKEN:
                     decoded_words.append('<EOS>')
@@ -188,12 +188,12 @@ def val(encoder, decoder, criterion, batchsize, dataset, teach_forcing=False, ma
                     decoded_words.append(converter.decode(ni))
                     decoded_label.append(ni)
 
-        # 计算正确个数
+        # Calculate the correct number
         for pred, target in zip(decoded_label, target_variable[1:,:]):
             if pred == target:
                 n_correct += 1
 
-        if i % 100 == 0:                 # 每100次输出一次
+        if  i  %  100  ==  0 :                  # output once every 100 times
             texts = cpu_texts[0]
             print('pred:%-20s, gt: %-20s' % (decoded_words, texts))
 
@@ -203,7 +203,7 @@ def val(encoder, decoder, criterion, batchsize, dataset, teach_forcing=False, ma
 
 def trainBatch(encoder, decoder, criterion, encoder_optimizer, decoder_optimizer, teach_forcing_prob=1):
     '''
-        target_label:采用后处理的方式，进行编码和对齐，以便进行batch训练
+        target_label: post-processing is used to encode and align for batch training
     '''
     data = train_iter.next()
     cpu_images, cpu_texts = data
@@ -211,26 +211,26 @@ def trainBatch(encoder, decoder, criterion, encoder_optimizer, decoder_optimizer
     target_variable = converter.encode(cpu_texts)
     utils.loadData(image, cpu_images)
 
-    encoder_outputs = encoder(image)               # cnn+biLstm做特征提取
+    encoder_outputs  =  encoder ( image )                # cnn+biLstm for feature extraction
     target_variable = target_variable.cuda()
-    decoder_input = target_variable[0].cuda()      # 初始化decoder的开始,从0开始输出
+    decoder_input  =  target_variable [ 0 ]. cuda ()       # Initialize the beginning of the decoder, start output from 0
     decoder_hidden = decoder.initHidden(b).cuda()
     loss = 0.0
     teach_forcing = True if random.random() > teach_forcing_prob else False
     if teach_forcing:
-        # 教师强制：将目标label作为下一个输入
-        for di in range(1, target_variable.shape[0]):           # 最大字符串的长度
+        # Teacher Mandatory: Use the target label as the next input
+        for  di  in  range ( 1 , target_variable . shape [ 0 ]):            # Maximum string length
             decoder_output, decoder_hidden, decoder_attention = decoder(
                 decoder_input, decoder_hidden, encoder_outputs)
-            loss += criterion(decoder_output, target_variable[di])          # 每次预测一个字符
-            decoder_input = target_variable[di]  # Teacher forcing/前一次的输出
+            loss  +=  criterion ( decoder_output , target_variable [ di ])           # predict one character at a time
+            decoder_input  =  target_variable [ di ]   # Teacher forcing/Previous output
     else:
         for di in range(1, target_variable.shape[0]):
             decoder_output, decoder_hidden, decoder_attention = decoder(
                 decoder_input, decoder_hidden, encoder_outputs)
-            loss += criterion(decoder_output, target_variable[di])  # 每次预测一个字符
+            loss  +=  criterion ( decoder_output , target_variable [ di ])   # predict one character at a time
             topv, topi = decoder_output.data.topk(1)
-            ni = topi.squeeze()
+            ni  =  topi . squeeze ()
             decoder_input = ni
     encoder.zero_grad()
     decoder.zero_grad()
@@ -265,7 +265,7 @@ if __name__ == '__main__':
                 t0 = time.time()
 
         # do checkpointing
-        if epoch % opt.saveInterval == 0:
+        if  epoch  %  opt . saveInterval  ==  0 :
             val(encoder, decoder, criterion, 1, dataset=test_dataset, teach_forcing=False)            # batchsize:1
             torch.save(
                 encoder.state_dict(), '{0}/encoder_{1}.pth'.format(opt.experiment, epoch))
